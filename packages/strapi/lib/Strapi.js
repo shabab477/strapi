@@ -18,6 +18,7 @@ const {
   bootstrap,
   loadExtensions,
   initCoreStore,
+  loadGroups,
 } = require('./core');
 const initializeMiddlewares = require('./middlewares');
 const initializeHooks = require('./hooks');
@@ -234,6 +235,7 @@ class Strapi extends EventEmitter {
       { middlewares, koaMiddlewares },
       hook,
       extensions,
+      groups,
     ] = await Promise.all([
       loadConfig(this),
       loadApis(this),
@@ -242,12 +244,14 @@ class Strapi extends EventEmitter {
       loadMiddlewares(this),
       loadHooks(this.config),
       loadExtensions(this.config),
+      loadGroups(this),
     ]);
 
     _.merge(this.config, config);
 
     this.api = api;
     this.admin = admin;
+    this.groups = groups;
     this.plugins = plugins;
     this.middleware = middlewares;
     this.koaMiddlewares = koaMiddlewares;
@@ -273,7 +277,6 @@ class Strapi extends EventEmitter {
 
     // init service manager
     this.initServices();
-    this.initGroups();
 
     // Usage.
     await utils.usage(this.config);
@@ -474,20 +477,6 @@ class Strapi extends EventEmitter {
 
   service(key) {
     return this.serviceManager.get(key);
-  }
-
-  initGroups() {
-    this.groupManager.clear();
-
-    Object.entries(this.api).forEach(([apiKey, api]) => {
-      if (!api.groups) {
-        return;
-      }
-
-      Object.entries(api.groups).forEach(([groupKey, group]) => {
-        this.groupManager.set(`${apiKey}.${groupKey}`, group);
-      });
-    });
   }
 }
 
