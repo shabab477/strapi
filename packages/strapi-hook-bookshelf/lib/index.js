@@ -59,7 +59,7 @@ module.exports = function(strapi) {
        * Initialize the hook
        */
 
-      initialize: async cb => {
+      initialize(cb) {
         const connections = _.pickBy(strapi.config.connections, {
           connector: 'strapi-hook-bookshelf',
         });
@@ -93,6 +93,19 @@ module.exports = function(strapi) {
             ORM.plugin('visibility');
             ORM.plugin('pagination');
           }
+
+          const groupMap = createGroups(
+            Object.keys(strapi.groups).map(uid => {
+              return {
+                uid,
+                ...strapi.groups[uid],
+              };
+            }),
+            {
+              strapi,
+              bookshelf: ORM,
+            }
+          );
 
           const mountModels = (models, target, plugin = false) => {
             // Parse every authenticated model.
@@ -990,3 +1003,40 @@ module.exports = function(strapi) {
 
   return hook;
 };
+
+function createGroups(groups, ctx) {
+  let groupModels = new WeakMap();
+
+  groups.forEach(group => {
+    const { uid } = group;
+
+    const groupModel = createGroupModel(group, ctx);
+    groupModels.set(uid, groupModel);
+  });
+}
+
+function createGroupModel(group, ctx) {
+  const { collectionName, attributes } = group;
+
+  const bookshelfModel = ctx.bookshelf.Model.extend({
+    tableName: collectionName,
+    initialize() {
+      this.constructor.__super__.initialize.apply(this, arguments);
+      // add event listeners
+    },
+    defaults: createDefaults(attributes),
+  });
+
+  return Object.assign(bookshelfModel, {
+    metadata: group,
+  });
+}
+
+function createDefaults(attributes) {
+  return Object.keys(attributes).reduce((acc, key) => {
+    const attribute = attributes[key];
+    if (attribute.default) {
+      acc[key] = attribute.default;
+    }
+  });
+}
