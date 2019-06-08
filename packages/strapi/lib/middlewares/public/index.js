@@ -9,7 +9,6 @@ const path = require('path');
 
 // Public modules
 const _ = require('lodash');
-const Koa = require('koa'); // eslint-disable-line no-unused-vars
 
 /**
  * Public assets hook
@@ -21,7 +20,7 @@ module.exports = strapi => {
      * Initialize the hook
      */
 
-    initialize: function(cb) {
+    initialize() {
       const staticDir = path.resolve(
         strapi.dir,
         strapi.config.middleware.settings.public.path ||
@@ -129,8 +128,6 @@ module.exports = strapi => {
           }),
         ],
       });
-
-      cb();
     },
   };
 };

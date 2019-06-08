@@ -13,7 +13,7 @@ module.exports = strapi => {
       strapi.config.middleware.load.before.unshift('users-permissions');
     },
 
-    initialize: function(cb) {
+    initialize() {
       _.forEach(strapi.admin.config.routes, value => {
         if (_.get(value.config, 'policies')) {
           value.config.policies.unshift(
@@ -41,8 +41,6 @@ module.exports = strapi => {
           });
         });
       }
-
-      cb();
     },
   };
 };

@@ -14,15 +14,13 @@ module.exports = strapi => {
      * Initialize the hook
      */
 
-    initialize: function(cb) {
+    initialize() {
       strapi.app.use(
         strapi.koaMiddlewares.ip({
           whitelist: strapi.config.middleware.settings.ip.whiteList,
-          blacklist: strapi.config.middleware.settings.ip.blackList
+          blacklist: strapi.config.middleware.settings.ip.blackList,
         })
       );
-
-      cb();
-    }
+    },
   };
 };

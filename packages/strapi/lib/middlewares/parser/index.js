@@ -10,7 +10,7 @@ module.exports = strapi => {
      * Initialize the hook
      */
 
-    initialize: function(cb) {
+    initialize() {
       strapi.app.use(
         strapi.koaMiddlewares.body(
           Object.assign(
@@ -24,8 +24,6 @@ module.exports = strapi => {
 
       // add koa-qs
       strapi.koaMiddlewares.qs(strapi.app);
-
-      cb();
     },
   };
 };

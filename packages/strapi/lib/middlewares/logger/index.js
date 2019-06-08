@@ -9,8 +9,7 @@ module.exports = strapi => {
     /**
      * Initialize the hook
      */
-
-    initialize: function(cb) {
+    initialize() {
       if (strapi.config.middleware.settings.logger.level) {
         strapi.log.level = strapi.config.middleware.settings.logger.level;
       }
@@ -19,19 +18,17 @@ module.exports = strapi => {
         strapi.app.context.log = strapi.log;
       }
 
-      if (strapi.config.middleware.settings.logger.requests && strapi.log.levelVal <= 20) {
+      if (
+        strapi.config.middleware.settings.logger.requests &&
+        strapi.log.levelVal <= 20
+      ) {
         strapi.app.use(async (ctx, next) => {
           const start = Date.now();
-
           await next();
-
           const delta = Math.ceil(Date.now() - start);
-
           strapi.log.debug(`${ctx.method} ${ctx.url} (${delta} ms)`);
         });
       }
-
-      cb();
-    }
+    },
   };
 };
