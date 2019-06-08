@@ -9,7 +9,7 @@ const _ = require('lodash');
 
 module.exports = strapi => {
   return {
-    beforeInitialize: function() {
+    beforeInitialize() {
       strapi.config.middleware.load.before.unshift('users-permissions');
     },
 

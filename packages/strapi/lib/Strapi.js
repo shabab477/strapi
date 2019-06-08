@@ -280,7 +280,10 @@ class Strapi extends EventEmitter {
     await Promise.all([
       initializeMiddlewares.call(this),
       initializeHooks.call(this),
-    ]);
+    ]).catch(err => {
+      console.error(err);
+      throw err;
+    });
   }
 
   reload() {

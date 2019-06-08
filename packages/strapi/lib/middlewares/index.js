@@ -1,6 +1,18 @@
 'use strict';
 
-const { after, includes, indexOf, drop, dropRight, uniq, defaultsDeep, get, set, isUndefined, merge } = require('lodash');
+const {
+  after,
+  includes,
+  indexOf,
+  drop,
+  dropRight,
+  uniq,
+  defaultsDeep,
+  get,
+  set,
+  isUndefined,
+  merge,
+} = require('lodash');
 
 /* eslint-disable prefer-template */
 module.exports = async function() {
@@ -14,6 +26,17 @@ module.exports = async function() {
 
     await next();
   });
+
+  /** Utils */
+
+  const middleWareConfig = this.config.middleware;
+
+  const middlewareEnabled = key =>
+    get(middleWareConfig, ['settings', key, 'enabled'], false) === true;
+
+  const middlewareExists = key => {
+    return !isUndefined(this.middleware[key]);
+  };
 
   // Method to initialize middlewares and emit an event.
   const initialize = (module, middleware) => (resolve, reject) => {
@@ -45,49 +68,49 @@ module.exports = async function() {
     });
   };
 
-  await Promise.all(
-    Object.keys(this.middleware).map(
-      middleware =>
-        new Promise((resolve) => {
-          if (this.config.middleware.settings[middleware].enabled === false) {
-            return resolve();
-          }
-
-          const module = this.middleware[middleware].load;
-
-          if (module.beforeInitialize) {
-            module.beforeInitialize.call(module);
-          }
-
-          resolve();
-        })
-    )
+  const enabledMiddlewares = Object.keys(this.middleware).filter(
+    middlewareEnabled
   );
 
-  return Promise.all(
-    Object.keys(this.middleware).map(
-      middleware =>
-        new Promise((resolve, reject) => {
-          // Don't load disabled middleware.
-          if (this.config.middleware.settings[middleware].enabled === false) {
-            return resolve();
-          }
+  // Run beforeInitialize of every middleware
+  await Promise.all(
+    enabledMiddlewares.map(key => {
+      const { beforeInitialize } = this.middleware[key].load;
+      if (typeof beforeInitialize === 'function') {
+        return beforeInitialize();
+      }
+    })
+  );
 
-          const module = this.middleware[middleware].load;
+  await Promise.all(
+    enabledMiddlewares.map(
+      key =>
+        new Promise((resolve, reject) => {
+          const module = this.middleware[key].load;
 
           // Retrieve middlewares configurations order
-          const middlewares = Object.keys(this.middleware).filter(middleware => this.config.middleware.settings[middleware].enabled !== false);
-          const middlewaresBefore = get(this.config.middleware, 'load.before', []).filter(middleware => !isUndefined(this.middleware[middleware])).filter(middleware => this.config.middleware.settings[middleware].enabled !== false);
-          const middlewaresOrder = get(this.config.middleware, 'load.order', []).filter(middleware => !isUndefined(this.middleware[middleware])).filter(middleware => this.config.middleware.settings[middleware].enabled !== false);
-          const middlewaresAfter = get(this.config.middleware, 'load.after', []).filter(middleware => !isUndefined(this.middleware[middleware])).filter(middleware => this.config.middleware.settings[middleware].enabled !== false);
+          const middlewaresBefore = get(middleWareConfig, 'load.before', [])
+            .filter(middlewareExists)
+            .filter(middlewareEnabled);
+
+          const middlewaresOrder = get(middleWareConfig, 'load.order', [])
+            .filter(middlewareExists)
+            .filter(middlewareEnabled);
+
+          const middlewaresAfter = get(middleWareConfig, 'load.after', [])
+            .filter(middlewareExists)
+            .filter(middlewareEnabled);
 
           // Apply default configurations to middleware.
-          if (isUndefined(get(this.config.middleware, `settings.${middleware}`))) {
-            set(this.config.middleware, `settings.${middleware}`, {});
+          if (isUndefined(get(middleWareConfig, ['settings', key]))) {
+            set(middleWareConfig, ['settings', key], {});
           }
 
-          if (module.defaults && this.config.middleware.settings[middleware] !== false) {
-            defaultsDeep(this.config.middleware.settings[middleware], module.defaults[middleware] || module.defaults);
+          if (module.defaults && middleWareConfig.settings[key] !== false) {
+            defaultsDeep(
+              middleWareConfig.settings[key],
+              module.defaults[key] || module.defaults
+            );
           }
 
           // Initialize array.
@@ -95,30 +118,40 @@ module.exports = async function() {
 
           // Add BEFORE middlewares to load and remove the current one
           // to avoid that it waits itself.
-          if (includes(middlewaresBefore, middleware)) {
-            const position = indexOf(middlewaresBefore, middleware);
+          if (includes(middlewaresBefore, key)) {
+            const position = indexOf(middlewaresBefore, key);
 
-            previousDependencies = previousDependencies.concat(dropRight(middlewaresBefore, middlewaresBefore.length - position));
+            previousDependencies = previousDependencies.concat(
+              dropRight(middlewaresBefore, middlewaresBefore.length - position)
+            );
           } else {
-            previousDependencies = previousDependencies.concat(middlewaresBefore.filter(x => x !== middleware));
+            previousDependencies = previousDependencies.concat(
+              middlewaresBefore.filter(x => x !== key)
+            );
 
             // Add ORDER dependencies to load and remove the current one
             // to avoid that it waits itself.
-            if (includes(middlewaresOrder, middleware)) {
-              const position = indexOf(middlewaresOrder, middleware);
+            if (includes(middlewaresOrder, key)) {
+              const position = indexOf(middlewaresOrder, key);
 
-              previousDependencies = previousDependencies.concat(dropRight(middlewaresOrder, middlewaresOrder.length - position));
+              previousDependencies = previousDependencies.concat(
+                dropRight(middlewaresOrder, middlewaresOrder.length - position)
+              );
             } else {
               // Add AFTER middlewares to load and remove the current one
               // to avoid that it waits itself.
-              if (includes(middlewaresAfter, middleware)) {
-                const position = indexOf(middlewaresAfter, middleware);
+              if (includes(middlewaresAfter, key)) {
+                const position = indexOf(middlewaresAfter, key);
                 const toLoadAfter = drop(middlewaresAfter, position);
 
                 // Wait for every middlewares.
-                previousDependencies = previousDependencies.concat(middlewares);
+                previousDependencies = previousDependencies.concat(
+                  enabledMiddlewares
+                );
                 // Exclude middlewares which need to be loaded after this one.
-                previousDependencies = previousDependencies.filter(x => !includes(toLoadAfter, x));
+                previousDependencies = previousDependencies.filter(
+                  x => !includes(toLoadAfter, x)
+                );
               }
             }
           }
@@ -127,11 +160,11 @@ module.exports = async function() {
           previousDependencies = uniq(previousDependencies);
 
           if (previousDependencies.length === 0) {
-            initialize(module, middleware)(resolve, reject);
+            initialize(module, key)(resolve, reject);
           } else {
             // Wait until the dependencies have been loaded.
             const queue = after(previousDependencies.length, () => {
-              initialize(module, middleware)(resolve, reject);
+              initialize(module, key)(resolve, reject);
             });
 
             previousDependencies.forEach(dependency => {
